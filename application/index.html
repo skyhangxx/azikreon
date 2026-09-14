@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#f7f3eb">
+  <link rel="icon" href="/assets/images/favicon.svg" type="image/svg+xml">
+  <title>Заявка | AKIZ Lingua</title>
+  <link rel="stylesheet" href="/assets/css/reset.css">
+  <link rel="stylesheet" href="/assets/css/main.css?v=20260910-consent-links">
+  <link rel="stylesheet" href="/assets/css/pages.css">
+  <link rel="stylesheet" href="/assets/css/structure.css?v=20260913-layout"><link rel="stylesheet" href="/assets/css/zip.css">
+  <script src="/assets/js/config.js?v=20260911-crm-live" defer></script>
+  <script src="/assets/js/layout.js?v=20260910-menu-three" defer></script>
+  <script src="/assets/js/main.js" defer></script>
+  <script src="/assets/js/test-config.js" defer></script>
+  <script src="/assets/js/test-engine.js" defer></script>
+  <script src="/assets/js/application.js" defer></script>
+  <script src="/assets/js/forms.js?v=20260913-success-dialog" defer></script>
+  <link rel="stylesheet" href="/assets/css/mobile.css?v=20260910-sakura-restored">
+</head>
+<body class="inner-page">
+  <a class="skip-link" href="#main-content">Перейти к содержимому</a>
+  <header data-shared-header></header>
+  <main class="application-page" id="main-content" data-application>
+    <div class="container">
+      <form class="lead-form" aria-labelledby="application-title" data-lead-form data-source="website_direct" novalidate>
+        <div class="application-form__heading"><h1 id="application-title">Оставьте заявку</h1><p>Мы свяжемся с вами в ближайшее время</p></div>
+        <div class="form-field"><label for="name">Ваше имя <span aria-hidden="true">*</span></label><input placeholder="Введите ваше имя" id="name" name="name" type="text" autocomplete="name" aria-describedby="name-error" required><small id="name-error" class="form-error" data-error-for="name"></small></div>
+        <div class="form-field"><label for="phone">Телефон <span aria-hidden="true">*</span></label><input placeholder="+7 (___) ___-__-__" id="phone" name="phone" type="tel" autocomplete="tel" aria-describedby="phone-error" required><small id="phone-error" class="form-error" data-error-for="phone"></small></div>
+        <div class="form-field"><label for="email">E-mail <span aria-hidden="true">*</span></label><input placeholder="example@mail.com" id="email" name="email" type="email" autocomplete="email" aria-describedby="email-error" required><small id="email-error" class="form-error" data-error-for="email"></small></div>
+        <div class="form-field"><label for="telegram">Telegram <span class="optional">(необязательно)</span></label><input placeholder="@username" id="telegram" name="telegram" type="text"><small class="form-error" data-error-for="telegram"></small></div>
+        <div class="honeypot" aria-hidden="true"><label for="company">Компания</label><input id="company" name="company" type="text" tabindex="-1" autocomplete="off"></div>
+        <div class="form-field--wide"><label class="check-field"><input name="personal_data_consent" type="checkbox" aria-describedby="personal-data-error" required><span>Я согласен(-на) на <a href="/personal-data/" target="_blank" rel="noopener noreferrer">обработку персональных данных</a></span></label><small id="personal-data-error" class="form-error" data-error-for="personal_data_consent"></small></div>
+        <div class="form-field--wide"><label class="check-field"><input name="user_agreement_consent" type="checkbox" aria-describedby="user-agreement-error" required><span>Я ознакомлен(а) и принимаю <a href="/agreement/" target="_blank" rel="noopener noreferrer">Пользовательское соглашение</a></span></label><small id="user-agreement-error" class="form-error" data-error-for="user_agreement_consent"></small></div>
+        <div class="form-field--wide"><label class="check-field"><input name="offer_consent" type="checkbox" aria-describedby="offer-error" required><span>Я согласен(-на) с условиями <a href="/offer/" target="_blank" rel="noopener noreferrer">Публичной оферты</a></span></label><small id="offer-error" class="form-error" data-error-for="offer_consent"></small></div>
+        <label class="check-field form-field--wide"><input name="marketing_consent" type="checkbox"><span>Я хочу получать новости и специальные предложения <span class="optional">(необязательно)</span></span></label>
+        <button class="button button--primary button--submit form-field--wide" type="submit">Отправить заявку <span aria-hidden="true">→</span></button>
+        <p class="application-form__privacy">Ваши данные в безопасности и не передаются третьим лицам.</p>
+        <div class="form-status form-field--wide" role="status" aria-live="polite" data-form-status></div>
+      </form>
+    </div>
+  </main>
+  <footer data-shared-footer></footer>
+  <dialog class="application-success" aria-labelledby="success-title" aria-describedby="success-description" data-success-dialog>
+    <h2 id="success-title">Заявка отправлена!</h2>
+    <div id="success-description"><p>Спасибо! Ваша заявка успешно отправлена.</p><p>Менеджер свяжется с вами в ближайшее время.</p></div>
+    <a class="button button--primary" href="/" autofocus>Вернуться на главную</a>
+    <a class="button button--secondary" href="#" data-telegram hidden target="_blank" rel="noopener noreferrer">Написать в Telegram</a>
+  </dialog>
+</body>
+</html>

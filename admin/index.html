@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Управление сайтом — AKIZ Lingua</title>
+  <link rel="icon" href="/assets/images/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/assets/css/reset.css">
+  <link rel="stylesheet" href="/assets/css/main.css?v=20260911-audience-text">
+  <link rel="stylesheet" href="/assets/css/admin.css?v=1">
+  <script src="/assets/js/cms-config.js?v=20260912-supabase" defer></script>
+  <script src="/assets/js/admin.js?v=1" type="module"></script>
+</head>
+<body class="cms-admin">
+  <header class="cms-header"><a href="/" class="cms-brand">AKIZ <small>LINGUA</small></a><a href="/" target="_blank" rel="noopener">Открыть сайт ↗</a></header>
+  <main class="cms-main">
+    <p id="cms-status" role="status" aria-live="polite"></p>
+    <section id="cms-login" class="cms-login" aria-labelledby="login-title">
+      <p class="cms-eyebrow">Управление сайтом</p>
+      <h1 id="login-title">Вход в админ-панель</h1>
+      <p>Преподаватели, отзывы и фотографии — в одном месте.</p>
+      <form id="login-form">
+        <label>Email<input name="email" type="email" autocomplete="username" required maxlength="254"></label>
+        <label>Пароль<input name="password" type="password" autocomplete="current-password" required></label>
+        <button type="submit" disabled>Войти</button>
+        <p id="login-error" class="cms-error" role="alert"></p>
+      </form>
+    </section>
+    <section id="cms-panel" hidden aria-labelledby="panel-title">
+      <div class="cms-title-row"><div><p class="cms-eyebrow">AKIZ Lingua</p><h1 id="panel-title">Контент сайта</h1><p id="cms-account"></p></div><button type="button" id="logout" class="cms-secondary">Выйти</button></div>
+      <nav class="cms-tabs" aria-label="Разделы CMS"><button type="button" data-kind="teachers" aria-pressed="true">Преподаватели</button><button type="button" data-kind="reviews" aria-pressed="false">Отзывы</button></nav>
+      <div class="cms-title-row"><h2 id="collection-title">Преподаватели</h2><button type="button" id="add-record">+ Добавить преподавателя</button></div>
+      <p id="list-status" role="status"></p>
+      <div id="cms-list" class="cms-list"></div>
+      <div class="cms-tools"><button type="button" id="refresh" class="cms-secondary">Обновить список</button><button type="button" id="cleanup" class="cms-secondary">Очистить неиспользуемые фото</button></div>
+      <p class="cms-hint">Удалённые и заменённые фотографии очищаются после защитной паузы в один час. Фотографии действующих записей сохраняются.</p>
+    </section>
+  </main>
+  <dialog id="editor" aria-labelledby="editor-title">
+    <form id="editor-form">
+      <div class="cms-title-row"><h2 id="editor-title"></h2><button type="button" id="close-editor" class="cms-secondary">Закрыть</button></div>
+      <fieldset id="editor-fields">
+        <label>Имя<input name="name" required maxlength="120"></label>
+        <label><span id="image-label">Фотография</span><input name="image" type="file" accept="image/jpeg,image/png,image/webp" aria-describedby="image-hint"></label>
+        <p id="image-hint" class="cms-hint">Загрузить изображение: JPG, PNG или WebP, до 5 МБ и 24 мегапикселей. Для замены выберите новый файл.</p>
+        <img id="image-preview" alt="Предпросмотр выбранного изображения" hidden>
+        <label id="location-field">Местоположение<input name="location" maxlength="160"></label>
+        <label><span id="description-label">Описание преподавателя</span><textarea name="description" rows="7" required maxlength="6000"></textarea></label>
+        <label id="stars-field">Количество звёзд<select name="stars"><option value="">Выберите оценку</option><option value="1">1 ★</option><option value="2">2 ★★</option><option value="3">3 ★★★</option><option value="4">4 ★★★★</option><option value="5">5 ★★★★★</option></select></label>
+        <label>Порядок отображения<input name="sort_order" type="number" min="-100000" max="100000" step="1" value="0" required></label>
+        <p class="cms-hint">Меньшее число — ближе к началу списка.</p>
+        <label class="cms-check"><input name="is_published" type="checkbox">Опубликован на сайте</label>
+      </fieldset>
+      <p id="editor-meta" class="cms-hint"></p>
+      <p id="editor-error" class="cms-error" role="alert"></p>
+      <button type="submit" id="save-record">Сохранить</button>
+    </form>
+  </dialog>
+  <noscript>Для входа и управления контентом включите JavaScript.</noscript>
+</body>
+</html>

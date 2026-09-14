@@ -1,0 +1,96 @@
+.success-page { background: #f9f4ed; }
+.success-page .skip-link { max-width: calc(100% - 20px); }
+.success-page .thanks-page {
+  position: relative;
+  isolation: isolate;
+  grid-template-columns: minmax(0, 1fr);
+  min-height: calc(100svh - 126px);
+  padding: 64px 24px 88px;
+  overflow: hidden;
+  background: var(--zip-bg) url("../images/current/application-background.webp") center bottom / cover no-repeat;
+}
+.success-page .thanks-page::after {
+  content: "";
+  position: absolute;
+  right: -24px;
+  top: 12px;
+  width: clamp(200px, 27vw, 420px);
+  aspect-ratio: 1672 / 941;
+  z-index: -1;
+  background: url("../images/application-sakura-branch-user.webp") right top / contain no-repeat;
+  transform-origin: right top;
+  transform: rotate(-14deg);
+  opacity: .9;
+  pointer-events: none;
+}
+.success-page .thanks-card {
+  min-width: 0;
+  justify-self: center;
+  width: min(100%, 730px);
+  padding: clamp(32px, 4.5vw, 56px) clamp(24px, 5vw, 64px);
+  border: 1px solid rgb(255 255 255 / 90%);
+  border-radius: 36px;
+  background: rgb(255 253 249 / 96%);
+  box-shadow: 0 24px 70px rgb(23 58 94 / 9%), 0 3px 12px rgb(23 58 94 / 3%);
+}
+.success-page .thanks-card__mark {
+  width: 76px;
+  height: 76px;
+  margin: 0 auto 26px;
+  background: var(--teal);
+  box-shadow: 0 0 0 9px #e5f0eb, inset 0 2px 0 rgb(255 255 255 / 24%);
+}
+.thanks-card__mark svg { width: 42px; height: 42px; }
+.success-page .thanks-card__eyebrow {
+  margin: 0 0 16px;
+  color: #11756f;
+  font-size: .75rem;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+.success-page .thanks-card h1 {
+  font-size: clamp(2.3rem, 4.8vw, 3.7rem);
+  font-weight: 800;
+  line-height: 1.08;
+  letter-spacing: -.045em;
+}
+.thanks-card h1 span { color: var(--teal); }
+.success-page .thanks-card__intro { margin-top: 22px; font-size: 1rem; line-height: 1.75; }
+.thanks-card__next {
+  display: flex;
+  gap: 16px;
+  margin-top: 30px;
+  padding: 22px;
+  border: 1px solid #d5e6de;
+  border-radius: 20px;
+  background: #edf4ef;
+  text-align: left;
+}
+.thanks-card__next > svg { flex: 0 0 28px; width: 28px; height: 28px; color: #11756f; }
+.thanks-card__next h2 { font-size: 1rem; font-weight: 700; }
+.success-page .thanks-card__next p { margin: 7px 0 0; font-size: .875rem; line-height: 1.7; }
+.success-page .thanks-card__test { margin-top: 18px; color: #11756f; font-size: .875rem; line-height: 1.65; }
+.success-page .thanks-card__actions { margin-top: 28px; gap: 18px; }
+.success-page .thanks-card__actions .button { min-height: 56px; font-size: .9375rem; white-space: normal; }
+.success-page .thanks-card__signoff { margin-top: 28px; font-size: .75rem; color: #69746e; }
+.thanks-card__signoff span { font-family: "Noto Sans KR", sans-serif; color: #11756f; }
+@media (max-width: 600px) {
+  .success-page .thanks-page {
+    min-height: calc(100svh - 96px);
+    padding: 64px 16px 100px;
+    background-size: 160% auto;
+    background-position: right bottom;
+  }
+  .success-page .thanks-page::after { right: -14px; top: 0; width: 155px; opacity: .85; transform: rotate(-10deg); }
+  .success-page .thanks-card { border-radius: 26px; padding: 32px 22px; }
+  .success-page .thanks-card__eyebrow { font-size: .65rem; letter-spacing: .08em; }
+  .success-page .thanks-card__intro { font-size: .875rem; }
+  .thanks-card__next { padding: 18px 16px; gap: 12px; }
+  .success-page .thanks-card__actions .button { width: 100%; }
+}
+@media (max-width: 360px) {
+  .success-page .thanks-card { padding-inline: 18px; }
+  .success-page .thanks-card h1 { font-size: 2rem; }
+  .thanks-card__next { padding: 16px 12px; gap: 10px; }
+}

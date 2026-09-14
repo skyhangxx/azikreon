@@ -1,0 +1,149 @@
+// Local browser integration tests with an explicitly simulated Supabase transport.
+// These are NOT a substitute for testing the real project's Auth / RLS / Storage.
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+const targets = await (await fetch('http://127.0.0.1:9223/json')).json();
+const socket = new WebSocket(targets.find(t => t.type === 'page').webSocketDebuggerUrl);
+await new Promise(resolve => socket.addEventListener('open', resolve, { once: true }));
+let id = 0; const pending = new Map();
+socket.addEventListener('message', ({ data }) => {
+  const m = JSON.parse(data);
+  if (m.method === 'Fetch.requestPaused') {
+    send('Fetch.fulfillRequest', { requestId: m.params.requestId, responseCode: 200, responseHeaders: [{ name: 'Content-Type', value: 'image/png' }], body: fs.readFileSync('assets/images/footer-icon-business.png').toString('base64') });
+  }
+  const entry = pending.get(m.id); if (entry) { pending.delete(m.id); clearTimeout(entry.timer); m.error ? entry.reject(m.error) : entry.resolve(m.result); }
+});
+const send = (method, params = {}) => new Promise((resolve, reject) => { const call = ++id; const timer = setTimeout(() => reject(new Error(method + ' timeout')), 20000); pending.set(call, { resolve, reject, timer }); socket.send(JSON.stringify({ id: call, method, params })); });
+const evaluate = async expression => { const r = await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true }); if (r.exceptionDetails) throw new Error(JSON.stringify(r.exceptionDetails)); return r.result.value; };
+const delay = ms => new Promise(r => setTimeout(r, ms));
+const until = async expression => { for (let i = 0; i < 100; i++) { if (await evaluate(expression).catch(() => false)) return; await delay(50); } throw new Error('Not ready: ' + expression); };
+const navigate = async path => { await send('Page.navigate', { url: 'http://127.0.0.1:4173' + path }); await until(`location.pathname === '${path}' && document.readyState === 'complete'`); };
+const click = selector => evaluate(`document.querySelector(${JSON.stringify(selector)}).click()`);
+const fill = values => evaluate(`Object.entries(${JSON.stringify(values)}).forEach(([key,value])=>{const f=document.querySelector('#editor-form').elements[key];if(f.type==='checkbox')f.checked=value;else f.value=value;f.dispatchEvent(new Event('input',{bubbles:true}))})`);
+await send('Page.enable'); await send('Runtime.enable');
+await send('Network.enable'); await send('Network.setCacheDisabled', { cacheDisabled: true });
+await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
+let injection;
+try {
+  await navigate('/admin/');
+  assert.equal(await evaluate(`document.querySelector('#cms-panel').hidden`), true);
+  assert.equal(await evaluate(`document.querySelector('#login-form button').disabled`), true);
+  console.log('PASS unconfigured admin: login visible, editing unavailable, setup guidance');
+  injection = await send('Page.addScriptToEvaluateOnNewDocument', { source: fs.readFileSync('tools/cms-fixture.js', 'utf8') });
+  await send('Fetch.enable', { patterns: [{ urlPattern: 'https://cms-test.invalid/storage/*', resourceType: 'Image' }] });
+  await navigate('/admin/');
+  await until(`!document.querySelector('#login-form button').disabled`);
+  await evaluate(`document.querySelector('#login-form').elements.email.value='qa@example.invalid'; document.querySelector('#login-form').elements.password.value='invalid'`);
+  await click('#login-form button'); await until(`document.querySelector('#login-error').textContent.length > 0`);
+  assert.equal(await evaluate(`document.querySelector('#cms-panel').hidden`), true);
+  await evaluate(`__cmsFixture.admin=false; document.querySelector('#login-form').elements.password.value='fixture'`);
+  await click('#login-form button'); await until(`document.querySelector('#login-error').textContent.includes('прав')`);
+  assert.equal(await evaluate(`document.querySelector('#cms-panel').hidden`), true);
+  await evaluate(`__cmsFixture.admin=true; document.querySelector('#login-form').elements.password.value='fixture'`);
+  await click('#login-form button'); await until(`!document.querySelector('#cms-panel').hidden`);
+  await until(`document.querySelector('#list-status').textContent.includes('Пока')`);
+  console.log('PASS fixture Auth: invalid password, authenticated non-admin denied, admin allowed');
+  const upload = async () => {
+    await evaluate(`(async()=>{const blob=await(await fetch('/assets/images/footer-icon-business.png')).blob();const dt=new DataTransfer();dt.items.add(new File([blob],'photo.png',{type:'image/png'}));const f=document.querySelector('#editor-form').elements.image;f.files=dt.files;f.dispatchEvent(new Event('change',{bubbles:true}))})()`);
+    await until(`!document.querySelector('#save-record').disabled && !document.querySelector('#image-preview').hidden`);
+  };
+  await click('#add-record');
+  await fill({ name: 'Fixture teacher', description: 'Описание преподавателя для локальной проверки.', sort_order: 7, is_published: true });
+  await upload(); await click('#save-record');
+  await until(`!document.querySelector('#editor').open`);
+  assert.equal(await evaluate(`__cmsFixture.tables.cms_teachers.length`), 1);
+  assert.equal(await evaluate(`__cmsFixture.uploads`), 1);
+  for (const width of [1440,768,390]) {
+    await send('Emulation.setDeviceMetricsOverride', { width, height: 1000, deviceScaleFactor: 1, mobile: width === 390 });
+    await click('.cms-record .cms-secondary');
+    await evaluate('document.fonts.ready');
+    assert.equal(await evaluate(`document.querySelector('#editor').scrollWidth <= document.querySelector('#editor').clientWidth`), true);
+    fs.mkdirSync('.cache/cms', { recursive: true });
+    const shot = await send('Page.captureScreenshot', { format: 'png' }); fs.writeFileSync(`.cache/cms/editor-${width}.png`, Buffer.from(shot.data, 'base64'));
+    await click('#close-editor');
+  }
+  await click('.cms-record .cms-secondary');
+  const oldImage = await evaluate(`__cmsFixture.tables.cms_teachers[0].image_path`);
+  await fill({ name: 'Updated teacher', is_published: false }); await upload();
+  await evaluate(`document.querySelector('#save-record').click();document.querySelector('#save-record').click()`);
+  await until(`!document.querySelector('#editor').open`);
+  assert.equal(await evaluate(`__cmsFixture.tables.cms_teachers[0].is_published`), false);
+  assert.notEqual(await evaluate(`__cmsFixture.tables.cms_teachers[0].image_path`), oldImage);
+  assert.equal(await evaluate(`__cmsFixture.tables.cms_teachers.length`), 1);
+  await evaluate(`__cmsFixture.tables.cms_media.forEach(m=>m.created_at='old')`);
+  await click('#cleanup'); await until(`__cmsFixture.tables.cms_media.length === 1`);
+  assert.equal(await evaluate(`__cmsFixture.tables.cms_media[0].path === __cmsFixture.tables.cms_teachers[0].image_path`), true);
+  await click('.cms-record .cms-secondary');
+  await evaluate(`__cmsFixture.tables.cms_teachers[0].updated_at='concurrent-change'`);
+  await fill({ name: 'Conflicting edit' }); await click('#save-record');
+  await until(`document.querySelector('#editor-error').textContent.includes('изменена')`);
+  await evaluate(`window.confirm=()=>true`); await click('#close-editor'); await click('#refresh');
+  await until(`document.querySelector('#list-status').textContent.includes('Записей')`);
+  console.log('PASS fixture teacher create, image upload, edit, hide, no duplicate record');
+  console.log('PASS fixture photo replacement, cleanup preserves referenced image, double-submit guard, concurrent edit conflict');
+  await click('[data-kind="reviews"]'); await until(`document.querySelector('#list-status').textContent.includes('Пока')`);
+  await click('#add-record'); await fill({ name: '<img src=x onerror=alert(1)>', location: 'Местоположение из фикстуры', description: 'Тестовый отзыв. Не реальные данные.', stars: 3, sort_order: 2, is_published: true });
+  await upload(); await click('#save-record'); await until(`!document.querySelector('#editor').open`);
+  assert.equal(await evaluate(`__cmsFixture.tables.cms_reviews[0].stars`), 3);
+  assert.equal(await evaluate(`document.querySelector('.cms-record h3').children.length`), 0);
+  await click('.cms-record .cms-secondary'); await fill({ description: 'Изменённый текст.', stars: 1 }); await click('#save-record'); await until(`!document.querySelector('#editor').open`);
+  assert.equal(await evaluate(`__cmsFixture.tables.cms_reviews[0].stars`), 1);
+  await evaluate(`window.confirm=()=>false`); await click('.cms-delete'); assert.equal(await evaluate(`__cmsFixture.tables.cms_reviews.length`), 1);
+  await evaluate(`window.confirm=()=>true`); await click('.cms-delete'); await until(`__cmsFixture.tables.cms_reviews.length === 0`);
+  await click('[data-kind="teachers"]'); await until(`document.querySelector('.cms-record') !== null`);
+  await click('.cms-delete'); await until(`__cmsFixture.tables.cms_teachers.length === 0`);
+  console.log('PASS fixture review avatar/name/location/text/stars, edit, safe text, deletion and cancellation');
+  await evaluate(`__cmsFixture.fail=true`); await click('#refresh'); await until(`document.querySelector('#list-status').textContent.includes('соединение')`); await evaluate(`__cmsFixture.fail=false`);
+  await click('#logout'); await until(`document.querySelector('#cms-panel').hidden`);
+  console.log('PASS network error and logout');
+  await evaluate(`document.querySelector('#login-form').elements.password.value='fixture'`);
+  await click('#login-form button'); await until(`!document.querySelector('#cms-panel').hidden`);
+  await evaluate(`(async()=>{__cmsFixture.expired=true;const {client}=await import('/assets/js/cms-client.js');await (await client(true)).auth.refreshSession()})()`);
+  await until(`document.querySelector('#cms-panel').hidden`);
+  console.log('PASS fixture expired refresh token returns to login');
+  await navigate('/');
+  await until(`document.querySelector('.cms-teachers') !== null`);
+  await evaluate(`__cmsFixture.tables.cms_teachers=[{id:'public',name:'Published',description:'Test',image_path:'/assets/images/teacher-hwain.webp',sort_order:0,is_published:true},{id:'hidden',name:'Hidden',description:'Test',image_path:'/assets/images/teacher-hwain.webp',sort_order:1,is_published:false}];import('/assets/js/cms-content.js?public-read-check')`);
+  await until(`document.querySelectorAll('.cms-teacher').length === 1`);
+  assert.equal(await evaluate(`document.querySelector('.cms-teacher h3').textContent`), 'Published');
+  console.log('PASS public query excludes unpublished records');
+  for (const width of [1440, 768, 390]) {
+    await send('Emulation.setDeviceMetricsOverride', { width, height: 1000, deviceScaleFactor: 1, mobile: width === 390 });
+    await evaluate('document.fonts.ready');
+    await delay(200);
+    const baselineWidth = await evaluate('document.documentElement.scrollWidth');
+    for (const count of [1,2,3,4,5,8]) {
+      await evaluate(`(async()=>{const {renderContent}=await import('/assets/js/cms-content.js?v=1');const teachers=Array.from({length:${count}},(_,i)=>({id:String(i),name:'Преподаватель '+i,description:'Текст преподавателя. '.repeat(12),image_path:'/assets/images/teacher-hwain.webp'}));const reviews=teachers.map((t,i)=>({...t,location:'Местоположение',stars:i%5+1}));renderContent('teachers',teachers);renderContent('reviews',reviews);await document.fonts.ready})()`);
+      await delay(70);
+      assert.equal(await evaluate(`document.querySelectorAll('.cms-teacher').length`), count);
+      assert.equal(await evaluate(`document.querySelectorAll('.cms-review').length`), count);
+      assert.equal(await evaluate('document.documentElement.scrollWidth <= ' + Math.max(width, baselineWidth)), true, `CMS introduced overflow ${count} at ${width}; baseline ${baselineWidth}; ` + JSON.stringify(await evaluate(`({scroll:document.documentElement.scrollWidth, elements:[...document.querySelectorAll('.cms-reviews,.cms-reviews-carousel,.cms-teachers,.cms-teacher,.cms-review')].map(e=>[e.className,e.getBoundingClientRect().left,e.getBoundingClientRect().right])})`)));
+      assert.equal(await evaluate(`[...document.querySelectorAll('.cms-review')].every(c=>getComputedStyle(c).display !== 'none')`), true);
+      assert.equal(await evaluate(`[...document.querySelectorAll('.cms-review')].every((c,i)=>c.querySelectorAll('.review-template__rating svg').length === i%5+1)`), true);
+      assert.equal(await evaluate(`[...document.querySelectorAll('.cms-teacher,.cms-review')].every(c=>c.scrollWidth <= c.clientWidth+1)`), true, `card content overflow ${count} at ${width}`);
+    }
+    await evaluate(`document.querySelector('#teachers').scrollIntoView()`);
+    await delay(100);
+    fs.mkdirSync('.cache/cms', { recursive: true });
+    const shot = await send('Page.captureScreenshot', { format: 'png' }); fs.writeFileSync(`.cache/cms/teachers-${width}.png`, Buffer.from(shot.data, 'base64'));
+    await evaluate(`document.querySelector('.cms-reviews').scrollIntoView()`); await delay(100);
+    const reviewShot = await send('Page.captureScreenshot', { format: 'png' }); fs.writeFileSync(`.cache/cms/reviews-${width}.png`, Buffer.from(reviewShot.data, 'base64'));
+  }
+  console.log('PASS 1/2/3/4/5/8 teacher and review cards at desktop/tablet/mobile; no hidden mobile reviews');
+  await evaluate(`(async()=>{const {renderContent}=await import('/assets/js/cms-content.js?v=1');renderContent('teachers',[]);renderContent('reviews',[])})()`);
+  assert.equal(await evaluate(`document.querySelectorAll('.cms-content-empty').length`), 2);
+  const validations = await evaluate(`(async()=>{const m=await import('/assets/js/cms-client.js');let rejected=0;for(const file of [new File(['x'],'x.svg',{type:'image/svg+xml'}),new File(['x'],'x.png',{type:'image/png'}),new File([new Uint8Array(6*1024*1024)],'x.png',{type:'image/png'})]){try{await m.validateImage(file)}catch{rejected++}}return rejected})()`);
+  assert.equal(validations, 3);
+  console.log('PASS empty states, SVG/spoofed/oversize file validation');
+  await send('Page.navigate', { url: 'http://127.0.0.1:4173/?cms_fail=1' });
+  await until(`document.querySelector('.teachers__grid')?.dataset.cmsLoad === 'unavailable'`);
+  assert.equal(await evaluate(`document.querySelectorAll('.teacher-card').length`), 2);
+  assert.equal(await evaluate(`document.querySelector('.teacher-card h3').textContent`), 'Ли Хваин');
+  console.log('PASS Supabase failure preserves original content');
+} finally {
+  if (injection) await send('Page.removeScriptToEvaluateOnNewDocument', { identifier: injection.identifier });
+  await send('Fetch.disable');
+  await evaluate(`sessionStorage.removeItem('akiz-cms-auth')`).catch(() => {});
+  await send('Page.navigate', { url: 'http://127.0.0.1:4173/admin/' });
+  socket.close();
+}

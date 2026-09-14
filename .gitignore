@@ -1,0 +1,9 @@
+# Regenerable builds, browser profiles, test dependencies and screenshots.
+/dist/
+/.cache/
+/artifacts/
+node_modules/
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db
