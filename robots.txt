@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+
+Disallow: /admin/
+Disallow: /thanks/
+Disallow: /application/
+
+Sitemap: https://akizkorean.ru/sitemap.xml
