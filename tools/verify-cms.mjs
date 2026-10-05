@@ -96,9 +96,34 @@ try {
   await evaluate(`__cmsFixture.fail=true`); await click('#refresh'); await until(`document.querySelector('#list-status').textContent.includes('соединение')`); await evaluate(`__cmsFixture.fail=false`);
   await click('#logout'); await until(`document.querySelector('#cms-panel').hidden`);
   console.log('PASS network error and logout');
+  assert.equal(await evaluate(`sessionStorage.getItem('akiz-cms-auth')`), null);
   await evaluate(`document.querySelector('#login-form').elements.password.value='fixture'`);
   await click('#login-form button'); await until(`!document.querySelector('#cms-panel').hidden`);
-  await evaluate(`(async()=>{__cmsFixture.expired=true;const {client}=await import('/assets/js/cms-client.js');await (await client(true)).auth.refreshSession()})()`);
+  await click('#add-record'); await fill({ name: 'Revoked fixture', description: 'Local fixture', sort_order: 0 }); await upload();
+  const writesBeforeRevocation = await evaluate(`__cmsFixture.writes`);
+  await evaluate(`__cmsFixture.admin=false`); await click('#save-record');
+  await until(`document.querySelector('#cms-panel').hidden`);
+  assert.equal(await evaluate(`__cmsFixture.writes`), writesBeforeRevocation);
+  await evaluate(`__cmsFixture.admin=true; document.querySelector('#login-form').elements.password.value='fixture'`);
+  await click('#login-form button'); await until(`!document.querySelector('#cms-panel').hidden`);
+  await click('#add-record'); await fill({ name: 'Interrupted fixture', description: 'Local fixture', sort_order: 0 }); await upload();
+  await evaluate(`window.__originalFixtureFetch=window.fetch; window.fetch=async(input,options={})=>{const response=await window.__originalFixtureFetch(input,options);if(String(input).includes('/storage/v1/object/')&&options.method==='POST'){window.__uploadPaused=true;await new Promise(resolve=>window.__releaseUpload=resolve)}return response}`);
+  await click('#save-record'); await until(`window.__uploadPaused === true`);
+  await click('#logout'); await until(`document.querySelector('#cms-panel').hidden && sessionStorage.getItem('akiz-cms-auth') === null`);
+  await evaluate(`window.__releaseUpload(); window.fetch=window.__originalFixtureFetch`);
+  await until(`!document.querySelector('#save-record').disabled`);
+  assert.equal(await evaluate(`__cmsFixture.tables.cms_teachers.length`), 0);
+  console.log('PASS role revoked before save, logout removes session and cancels pending upload-to-record continuation');
+  await evaluate(`document.querySelector('#login-form').elements.password.value='fixture'`);
+  await click('#login-form button'); await until(`!document.querySelector('#cms-panel').hidden`);
+  await evaluate(`window.__logoutFixtureFetch=window.fetch;window.fetch=(input,options)=>String(input).includes('/logout')?Promise.resolve(new Response(JSON.stringify({message:'Internal fixture failure'}),{status:500,headers:{'Content-Type':'application/json'}})):window.__logoutFixtureFetch(input,options)`);
+  await click('#logout');
+  await until(`typeof window.__logoutFixtureFetch === 'undefined' && document.querySelector('#cms-panel')?.hidden && sessionStorage.getItem('akiz-cms-auth') === null && !document.querySelector('#login-form button').disabled`);
+  await evaluate(`document.querySelector('#login-form').elements.email.value='qa@example.invalid'`);
+  console.log('PASS failed server logout still removes local session and SDK state');
+  await evaluate(`document.querySelector('#login-form').elements.password.value='fixture'`);
+  await click('#login-form button'); await until(`!document.querySelector('#cms-panel').hidden`);
+  await evaluate(`(async()=>{__cmsFixture.expired=true;const {client}=await import('/assets/js/cms-client.js?v=20260915-security');await (await client(true)).auth.refreshSession()})()`);
   await until(`document.querySelector('#cms-panel').hidden`);
   console.log('PASS fixture expired refresh token returns to login');
   await navigate('/');
@@ -113,13 +138,13 @@ try {
     await delay(200);
     const baselineWidth = await evaluate('document.documentElement.scrollWidth');
     for (const count of [1,2,3,4,5,8]) {
-      await evaluate(`(async()=>{const {renderContent}=await import('/assets/js/cms-content.js?v=1');const teachers=Array.from({length:${count}},(_,i)=>({id:String(i),name:'Преподаватель '+i,description:'Текст преподавателя. '.repeat(12),image_path:'/assets/images/teacher-hwain.webp'}));const reviews=teachers.map((t,i)=>({...t,location:'Местоположение',stars:i%5+1}));renderContent('teachers',teachers);renderContent('reviews',reviews);await document.fonts.ready})()`);
+      await evaluate(`(async()=>{const {renderContent}=await import('/assets/js/cms-content.js?public-read-check');const teachers=Array.from({length:${count}},(_,i)=>({id:String(i),name:'Преподаватель '+i,description:'Текст преподавателя. '.repeat(12),image_path:'/assets/images/teacher-hwain.webp'}));const reviews=teachers.map((t,i)=>({...t,location:'Местоположение',stars:i%5+1}));renderContent('teachers',teachers);renderContent('reviews',reviews);await document.fonts.ready})()`);
       await delay(70);
       assert.equal(await evaluate(`document.querySelectorAll('.cms-teacher').length`), count);
       assert.equal(await evaluate(`document.querySelectorAll('.cms-review').length`), count);
       assert.equal(await evaluate('document.documentElement.scrollWidth <= ' + Math.max(width, baselineWidth)), true, `CMS introduced overflow ${count} at ${width}; baseline ${baselineWidth}; ` + JSON.stringify(await evaluate(`({scroll:document.documentElement.scrollWidth, elements:[...document.querySelectorAll('.cms-reviews,.cms-reviews-carousel,.cms-teachers,.cms-teacher,.cms-review')].map(e=>[e.className,e.getBoundingClientRect().left,e.getBoundingClientRect().right])})`)));
       assert.equal(await evaluate(`[...document.querySelectorAll('.cms-review')].every(c=>getComputedStyle(c).display !== 'none')`), true);
-      assert.equal(await evaluate(`[...document.querySelectorAll('.cms-review')].every((c,i)=>c.querySelectorAll('.review-template__rating svg').length === i%5+1)`), true);
+      assert.equal(await evaluate(`[...document.querySelectorAll('.cms-review')].every((c,i)=>c.querySelector('.review-template__rating').textContent === '\u2605'.repeat(i%5+1)+'\u2606'.repeat(4-i%5))`), true);
       assert.equal(await evaluate(`[...document.querySelectorAll('.cms-teacher,.cms-review')].every(c=>c.scrollWidth <= c.clientWidth+1)`), true, `card content overflow ${count} at ${width}`);
     }
     await evaluate(`document.querySelector('#teachers').scrollIntoView()`);
@@ -130,9 +155,10 @@ try {
     const reviewShot = await send('Page.captureScreenshot', { format: 'png' }); fs.writeFileSync(`.cache/cms/reviews-${width}.png`, Buffer.from(reviewShot.data, 'base64'));
   }
   console.log('PASS 1/2/3/4/5/8 teacher and review cards at desktop/tablet/mobile; no hidden mobile reviews');
-  await evaluate(`(async()=>{const {renderContent}=await import('/assets/js/cms-content.js?v=1');renderContent('teachers',[]);renderContent('reviews',[])})()`);
-  assert.equal(await evaluate(`document.querySelectorAll('.cms-content-empty').length`), 2);
-  const validations = await evaluate(`(async()=>{const m=await import('/assets/js/cms-client.js');let rejected=0;for(const file of [new File(['x'],'x.svg',{type:'image/svg+xml'}),new File(['x'],'x.png',{type:'image/png'}),new File([new Uint8Array(6*1024*1024)],'x.png',{type:'image/png'})]){try{await m.validateImage(file)}catch{rejected++}}return rejected})()`);
+  await evaluate(`(async()=>{const {renderContent}=await import('/assets/js/cms-content.js?public-read-check');renderContent('teachers',[]);renderContent('reviews',[])})()`);
+  assert.equal(await evaluate(`document.querySelectorAll('.cms-teachers .cms-content-empty').length`), 1);
+  assert.equal(await evaluate(`document.querySelectorAll('.cms-reviews .cms-review:not([aria-hidden="true"])').length`), 0);
+  const validations = await evaluate(`(async()=>{const m=await import('/assets/js/cms-client.js?v=20260915-security');let rejected=0;for(const file of [new File(['x'],'x.svg',{type:'image/svg+xml'}),new File(['x'],'x.png',{type:'image/png'}),new File([new Uint8Array(6*1024*1024)],'x.png',{type:'image/png'})]){try{await m.validateImage(file)}catch{rejected++}}return rejected})()`);
   assert.equal(validations, 3);
   console.log('PASS empty states, SVG/spoofed/oversize file validation');
   await send('Page.navigate', { url: 'http://127.0.0.1:4173/?cms_fail=1' });

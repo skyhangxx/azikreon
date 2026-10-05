@@ -52,9 +52,10 @@ if (application && 'IntersectionObserver' in window) {
 }
 
 const currentUrl = new URL(window.location.href);
-currentUrl.searchParams.forEach((value, key) => {
-  if (key.startsWith('utm_') && value && !sessionStorage.getItem(`akiz_${key}`)) sessionStorage.setItem(`akiz_${key}`, value);
-});
+for (const key of ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content']) {
+  const value = currentUrl.searchParams.get(key);
+  if (value && !sessionStorage.getItem(`akiz_${key}`)) sessionStorage.setItem(`akiz_${key}`, value.slice(0, 500));
+}
 
 const motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)');
 const prefersReducedMotion = motionPreference.matches;

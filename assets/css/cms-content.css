@@ -42,8 +42,7 @@
 .reviews .cms-review .cms-review-avatar-image { display: block; width: 100%; height: 100%; object-fit: cover; }
 .reviews .cms-review .review-template__meta { min-width: 0; }
 .reviews .cms-review .review-template__meta h4 { margin: 0; color: var(--navy); font-size: 20px; font-weight: 700; line-height: 1.35; }
-.reviews .cms-review-location { position: relative; margin: 0 0 0 25px; color: #40565b; font-size: 16px; font-weight: 500; line-height: 1.45; }
-.reviews .cms-review-location::before { content: ""; position: absolute; top: .7em; left: -23px; width: 12px; height: 12px; border: 3px solid #ff75a5; border-radius: 50% 50% 50% 0; transform: translateY(-68%) rotate(-45deg); }
+.reviews .cms-review-location { margin: 0; color: #40565b; font-size: 16px; font-weight: 500; line-height: 1.45; }
 .reviews .cms-review .review-template__rating { grid-column: 2; white-space: nowrap; }
 .reviews .cms-review-copy { position: relative; white-space: pre-wrap; margin: 0; padding: 0 0 18px; text-indent: 46px; color: #25302f; font-size: 16px; line-height: 1.65; }
 .reviews .cms-review-preview .cms-review-copy { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden; padding-bottom: 0; }

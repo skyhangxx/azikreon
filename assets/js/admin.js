@@ -1,18 +1,34 @@
-import { client, configured, collections, imageUrl, unwrap, readAll, uploadImage, validateImage, validateRecord, cleanupMedia, errorMessage } from './cms-client.js';
+import { client, configured, collections, imageUrl, unwrap, readAll, uploadImage, validateImage, validateRecord, cleanupMedia, errorMessage, CmsInputError } from './cms-client.js?v=20260915-security';
 
 const $ = selector => document.querySelector(selector);
 const login = $('#cms-login'), panel = $('#cms-panel'), dialog = $('#editor');
 const form = $('#editor-form'), fields = form.elements;
 let api, kind = 'teachers', rows = [], editing = null, saving = false, dirty = false;
 let previewUrl = '', selectedFile = null, uploadedPath = '', authorized = false, loadVersion = 0, accessVersion = 0;
+let sessionVersion = 0, loggingOut = false;
 const status = message => { $('#cms-status').textContent = message; };
 const el = (tag, text, cls) => { const node = document.createElement(tag); if (text) node.textContent = text; if (cls) node.className = cls; return node; };
 function revokePreview() { if (previewUrl) URL.revokeObjectURL(previewUrl); previewUrl = ''; }
 function lock() {
-  authorized = false; ++loadVersion; ++accessVersion; rows = []; panel.hidden = true; login.hidden = false;
+  authorized = false; ++sessionVersion; ++fileVersion; ++loadVersion; ++accessVersion; rows = []; panel.hidden = true; login.hidden = false;
   $('#cms-list').replaceChildren(); if (dialog.open) dialog.close(); revokePreview();
+  form.reset(); selectedFile = null; uploadedPath = ''; editing = null; dirty = false;
+  $('#login-form').elements.password.value = '';
+}
+function assertActive(version) {
+  if (!authorized || version !== sessionVersion) throw new CmsInputError('Сессия изменилась. Войдите снова.');
+}
+async function requireAdmin() {
+  const version = sessionVersion;
+  assertActive(version);
+  unwrap(await api.auth.getUser());
+  const allowed = unwrap(await api.rpc('cms_is_admin'));
+  assertActive(version);
+  if (!allowed) { lock(); throw new CmsInputError('У этой учётной записи нет прав администратора.'); }
+  return version;
 }
 async function checkAccess(session) {
+  if (loggingOut) return;
   if (!session) { lock(); return; }
   const version = ++accessVersion;
   try {
@@ -33,6 +49,7 @@ async function handleError(error, target = '#editor-error') {
   }
 }
 async function load() {
+  if (!authorized) return;
   const version = ++loadVersion, currentKind = kind;
   $('#list-status').textContent = 'Загружаем…';
   try {
@@ -90,7 +107,7 @@ fields.image.addEventListener('change', async () => {
     if (version !== fileVersion) return;
     selectedFile = file; revokePreview(); previewUrl = URL.createObjectURL(file);
     $('#image-preview').src = previewUrl; $('#image-preview').hidden = false;
-  } catch (error) { fields.image.value = ''; await handleError(error); }
+  } catch (error) { if (version === fileVersion) { fields.image.value = ''; await handleError(error); } }
   finally { if (version === fileVersion) $('#save-record').disabled = false; }
 });
 form.addEventListener('submit', async event => {
@@ -103,13 +120,19 @@ form.addEventListener('submit', async event => {
       image_path: uploadedPath || editing.image_path || (selectedFile ? `${kind}/${editing.id}.png` : '') };
     if (kind === 'reviews') Object.assign(record, { location: fields.location.value.trim(), stars: Number(fields.stars.value) });
     validateRecord(kind, record);
-    if (selectedFile && !uploadedPath) uploadedPath = await uploadImage(api, kind, selectedFile);
+    const version = await requireAdmin();
+    if (selectedFile && !uploadedPath) {
+      const path = await uploadImage(api, kind, selectedFile, () => assertActive(version));
+      assertActive(version); uploadedPath = path;
+    }
+    assertActive(version);
     record.image_path = uploadedPath || editing.image_path;
     const table = api.from(collections[kind].table);
     const query = editing.updated_at
       ? table.update(record).eq('id', editing.id).eq('updated_at', editing.updated_at)
       : table.upsert({ ...record, id: editing.id });
     unwrap(await query.select().single());
+    assertActive(version);
     dirty = false; dialog.close(); revokePreview(); status('Сохранено. Опубликованные изменения появятся на сайте при следующей загрузке страницы.');
     if (kind === currentKind) await load();
     await clean(false);
@@ -117,20 +140,23 @@ form.addEventListener('submit', async event => {
   finally { saving = false; $('#editor-fields').disabled = false; $('#save-record').disabled = false; $('#save-record').textContent = 'Сохранить'; $('#close-editor').disabled = false; }
 });
 async function deleteRecord(record, button) {
+  if (!authorized) return;
   if (!confirm(`Удалить «${record.name}»? Запись исчезнет с сайта. Это действие нельзя отменить.`)) return;
   button.disabled = true;
   try {
+    const version = await requireAdmin();
     unwrap(await api.from(collections[kind].table).delete().eq('id', record.id).eq('updated_at', record.updated_at).select().single());
+    assertActive(version);
     status('Запись удалена.'); await load(); await clean(false);
   } catch (error) { await handleError(error, '#list-status'); }
   finally { button.disabled = false; }
 }
 let cleaning = false;
 async function clean(manual) {
-  if (cleaning) return;
+  if (cleaning || !authorized) return;
   cleaning = true; $('#cleanup').disabled = true;
-  try { const count = await cleanupMedia(api); if (manual) status(`Очистка завершена. Удалено файлов: ${count}. Новые файлы защищены в течение часа.`); }
-  catch (error) { status(`Очистка фото не выполнена. Повторите её позже. ${errorMessage(error)}`); }
+  try { const version = await requireAdmin(); const count = await cleanupMedia(api, () => assertActive(version)); if (manual) status(`Очистка завершена. Удалено файлов: ${count}. Новые файлы защищены в течение часа.`); }
+  catch (error) { await handleError(error, '#cms-status'); }
   finally { cleaning = false; $('#cleanup').disabled = false; }
 }
 $('#add-record').onclick = () => openEditor();
@@ -148,11 +174,16 @@ $('#login-form').addEventListener('submit', async event => {
     const { session } = unwrap(await api.auth.signInWithPassword({ email: event.currentTarget.elements.email.value.trim(), password: event.currentTarget.elements.password.value }));
     $('#login-form').elements.password.value = ''; await checkAccess(session);
   } catch (error) { $('#login-error').textContent = errorMessage(error); }
-  finally { button.disabled = false; button.textContent = 'Войти'; }
+  finally { $('#login-form').elements.password.value = ''; button.disabled = false; button.textContent = 'Войти'; }
 });
 $('#logout').onclick = async () => {
-  try { unwrap(await api.auth.signOut({ scope: 'local' })); lock(); status('Вы вышли из админ-панели.'); }
-  catch (error) { status(errorMessage(error)); }
+  loggingOut = true; lock();
+  try { unwrap(await api.auth.signOut({ scope: 'local' })); lock(); loggingOut = false; status('Вы вышли из админ-панели.'); }
+  catch {
+    // A failed remote logout must not leave a reusable local session or SDK state.
+    sessionStorage.removeItem('akiz-cms-auth');
+    window.location.reload();
+  }
 };
 try {
   if (!configured()) status('CMS ещё не подключена. Настройте Supabase по инструкции CMS_SETUP.md; затем здесь можно будет войти.');

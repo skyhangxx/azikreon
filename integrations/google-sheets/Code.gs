@@ -37,6 +37,18 @@ function cleanCell(value, limit) {
 
 function validateLead(data) {
   if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('invalid_payload');
+  const textFields = { request_id: 80, name: 200, phone: 40, email: 254, telegram: 100, company: 200,
+    form_kind: 20, source: 30, page_url: 2000, created_at: 40,
+    test_level: 120, recommended_group: 120, result_id: 120,
+    utm_source: 500, utm_medium: 500, utm_campaign: 500, utm_term: 500, utm_content: 500 };
+  const booleans = ['personal_data_consent', 'user_agreement_consent', 'offer_consent', 'marketing_consent'];
+  const allowed = new Set([...Object.keys(textFields), ...booleans, 'test_score']);
+  if (Object.keys(data).some(key => !allowed.has(key))) throw new Error('unexpected_field');
+  for (const key of Object.keys(textFields)) {
+    if (Object.prototype.hasOwnProperty.call(data, key) && (typeof data[key] !== 'string' || data[key].length > textFields[key])) throw new Error('invalid_field');
+  }
+  if (booleans.some(key => Object.prototype.hasOwnProperty.call(data, key) && typeof data[key] !== 'boolean')) throw new Error('invalid_consent');
+  if (Object.prototype.hasOwnProperty.call(data, 'test_score') && (!Number.isInteger(data.test_score) || data.test_score < 0 || data.test_score > 15)) throw new Error('invalid_score');
   if (!/^[a-zA-Z0-9-]{16,80}$/.test(data.request_id || '')) throw new Error('invalid_request_id');
   if (data.company) throw new Error('spam');
   if (typeof data.name !== 'string' || !data.name.trim() || data.name.length > 200) throw new Error('invalid_name');
@@ -61,7 +73,7 @@ function validateLead(data) {
 function doPost(event) {
   const lock = LockService.getScriptLock();
   try {
-    if (!event || !event.postData || event.postData.contents.length > 16000) return jsonReply({ok: false, error: 'invalid_payload'});
+    if (!event || !event.postData || typeof event.postData.contents !== 'string' || !event.postData.contents.length || event.postData.contents.length > 16000) return jsonReply({ok: false, error: 'invalid_payload'});
     const data = validateLead(JSON.parse(event.postData.contents));
     lock.waitLock(20000);
     const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(CRM_SHEET);

@@ -1,3 +1,5 @@
+# Used by hosts that support _headers (for example Cloudflare Pages).
+# GitHub Pages ignores this file: it does NOT enforce these security headers.
 /admin
   X-Robots-Tag: noindex, nofollow
   Cache-Control: no-store

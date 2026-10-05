@@ -1,4 +1,4 @@
-import { client, configured, readAll, collections, imageUrl } from './cms-client.js';
+import { client, configured, readAll, collections, imageUrl } from './cms-client.js?v=20260915-security';
 // Keep the original decorative HTML as the empty-state template, never as CMS data.
 const reviewPlaceholder = document.querySelector('.reviews__track .review-placeholder[aria-hidden="true"]')?.cloneNode(true);
 const node = (tag, cls, text) => { const el = document.createElement(tag); el.className = cls; if (text) el.textContent = text; return el; };

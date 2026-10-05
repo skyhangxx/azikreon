@@ -2,6 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
+  <meta name="referrer" content="no-referrer">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex,nofollow">
   <title>Управление сайтом — AKIZ Lingua</title>
@@ -10,7 +11,7 @@
   <link rel="stylesheet" href="/assets/css/main.css?v=20260911-audience-text">
   <link rel="stylesheet" href="/assets/css/admin.css?v=1">
   <script src="/assets/js/cms-config.js?v=20260912-supabase" defer></script>
-  <script src="/assets/js/admin.js?v=1" type="module"></script>
+  <script src="/assets/js/admin.js?v=20260915-security" type="module"></script>
 </head>
 <body class="cms-admin">
   <header class="cms-header"><a href="/" class="cms-brand">AKIZ <small>LINGUA</small></a><a href="/" target="_blank" rel="noopener">Открыть сайт ↗</a></header>
@@ -45,7 +46,7 @@
         <label><span id="image-label">Фотография</span><input name="image" type="file" accept="image/jpeg,image/png,image/webp" aria-describedby="image-hint"></label>
         <p id="image-hint" class="cms-hint">Загрузить изображение: JPG, PNG или WebP, до 5 МБ и 24 мегапикселей. Для замены выберите новый файл.</p>
         <img id="image-preview" alt="Предпросмотр выбранного изображения" hidden>
-        <label id="location-field">Местоположение<input name="location" maxlength="160"></label>
+        <label id="location-field">Статус<input name="location" maxlength="160"></label>
         <label><span id="description-label">Описание преподавателя</span><textarea name="description" rows="7" required maxlength="6000"></textarea></label>
         <label id="stars-field">Количество звёзд<select name="stars"><option value="">Выберите оценку</option><option value="1">1 ★</option><option value="2">2 ★★</option><option value="3">3 ★★★</option><option value="4">4 ★★★★</option><option value="5">5 ★★★★★</option></select></label>
         <label>Порядок отображения<input name="sort_order" type="number" min="-100000" max="100000" step="1" value="0" required></label>

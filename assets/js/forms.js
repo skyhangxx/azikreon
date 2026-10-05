@@ -34,7 +34,6 @@ function validateLeadForm(form) {
 
 function makePayload(form) {
   const data = Object.fromEntries(new FormData(form).entries());
-  delete data.company;
   ['personal_data_consent', 'user_agreement_consent', 'offer_consent', 'marketing_consent'].forEach((name) => {
     data[name] = Boolean(form.elements[name]?.checked);
   });
@@ -43,9 +42,10 @@ function makePayload(form) {
   data.form_kind = form.elements.email ? 'application' : 'home';
   data.page_url = window.location.href;
   data.created_at = new Date().toISOString();
-  Object.keys(sessionStorage).filter((key) => key.startsWith('akiz_utm_')).forEach((key) => {
-    data[key.slice(5)] = sessionStorage.getItem(key);
-  });
+  for (const key of ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content']) {
+    const value = sessionStorage.getItem(`akiz_${key}`);
+    if (value) data[key] = value.slice(0, 500);
+  }
   return data;
 }
 

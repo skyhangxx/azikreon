@@ -41,10 +41,12 @@ try {
     assert.equal(await evaluate(`location.pathname`),route);
     assert.equal(await evaluate(`JSON.parse(sessionStorage.getItem('qa_last_payload')).request_id`),first);
     await evaluate(`sessionStorage.setItem('qa_crm_mode','success');document.querySelector('[data-lead-form]').requestSubmit()`);
-    await until(`location.pathname==='/thanks/index.html'`);
-    assert.equal(await evaluate(`location.search`),'?form=lead');
+    await until(`document.querySelector('[data-form-status]').textContent.includes('Заявка отправлена')`);
+    assert.equal(await evaluate(`location.pathname`), route);
+    assert.equal(await evaluate(`document.querySelector('[type=submit]').disabled`), true);
+    if (route === '/application/') assert.equal(await evaluate(`document.querySelector('[data-success-dialog]').open`), true);
   }
-  console.log('PASS both CRM forms: validation, network failure, unconfirmed response, preserved input, retry ID, confirmed thanks redirect (no Google writes)');
+  console.log('PASS both CRM forms: validation, network failure, unconfirmed response, preserved input, retry ID, inline success and application dialog (no Google writes)');
   await navigate('/test/');
   for(let i=0;i<15;i++){
     await evaluate(`document.querySelector('[data-answers] input').click();document.querySelector('[data-next]').click()`);

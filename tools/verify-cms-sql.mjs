@@ -32,6 +32,7 @@ try {
   for (let run = 0; run < 2; run++) {
     await db.exec(fs.readFileSync('supabase/001_cms.sql', 'utf8'));
     await db.exec(fs.readFileSync('supabase/002_seed_content.sql', 'utf8'));
+    await db.exec(fs.readFileSync('supabase/003_storage_cleanup_guard.sql', 'utf8'));
   }
   assert.equal((await rows('select * from cms_private.admins')).length, 0);
   assert.equal((await rows('select * from cms_teachers')).length, 2);
@@ -49,6 +50,8 @@ try {
   await rejected(`select * from cms_media`);
   await rejected(`select * from cms_unused_media()`);
   await rejected(`insert into storage.objects(bucket_id,name) values ('cms-images','teachers/a.png')`);
+  assert.equal((await rows(`delete from storage.objects returning id`)).length, 0);
+  assert.equal((await rows(`update storage.objects set name='teachers/a.png' returning id`)).length, 0);
   console.log('PASS PostgreSQL anon: only published rows, no content/media/admin writes or private reads');
   await role('authenticated', member);
   assert.equal((await rows('select * from cms_teachers')).length, 2);
@@ -79,6 +82,11 @@ try {
     await db.query(`insert into storage.objects(bucket_id,name) values ('cms-images',$1)`, [path]);
   }
   assert.equal((await rows(`delete from storage.objects where name=$1 returning id`, [used])).length, 0);
+  assert.equal((await rows(`delete from storage.objects where name=$1 returning id`, [fresh])).length, 0);
+  await db.query(`insert into storage.objects(bucket_id,name) values ('cms-images','teachers/a.png')`);
+  assert.equal((await rows(`delete from storage.objects where name='teachers/a.png' returning id`)).length, 0);
+  await rejected(`insert into storage.objects(bucket_id,name) values ('cms-images','teachers/../a.png')`);
+  await rejected(`insert into storage.objects(bucket_id,name) values ('cms-images','reviews/a.svg')`);
   await db.exec('reset role');
   await db.query(`update cms_media set created_at=now()-interval '2 hours' where path<>$1`, [fresh]);
   await role('authenticated', admin);
